@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/chat_bubble.dart';
 import 'package:myapp/chat_manager.dart';
+import 'package:myapp/message.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -10,6 +11,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final ChatManager _chatManager = ChatManager();
+  final TextEditingController _controller = TextEditingController();
+
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
@@ -19,8 +23,11 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  final ChatManager _chatManager = ChatManager();
-  final TextEditingController _controller = TextEditingController();
+  void _deleteMessage(Message message) {
+    setState(() {
+      _chatManager.deleteMessage(message);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +44,12 @@ class _ChatScreenState extends State<ChatScreen> {
                       _chatManager.messages
                           .asMap()
                           .entries
-                          .map((item) => ChatBubble(message: item.value))
+                          .map(
+                            (item) => ChatBubble(
+                              message: item.value,
+                              onDelete: () => _deleteMessage(item.value),
+                            ),
+                          )
                           .toList(),
                 ),
               ),

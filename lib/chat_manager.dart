@@ -2,7 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:myapp/message.dart';
 
 class ChatManager {
-  final _myBox = Hive.box("chatBox");
+  final _myBox = Hive.box("chat");
 
   final List<Message> _messages = [];
 
@@ -25,7 +25,6 @@ class ChatManager {
     _addBoth(message);
   }
 
-  // Add a bot response
   void addBotResponse(String text) {
     final message = Message(
       text: text,
@@ -43,5 +42,13 @@ class ChatManager {
     final response = "return '$text'";
 
     addBotResponse(response);
+  }
+
+  void deleteMessage(Message message) {
+    int index = _messages.indexOf(message);
+    if (index != -1) {
+      _myBox.deleteAt(index);
+      _messages.remove(message);
+    }
   }
 }

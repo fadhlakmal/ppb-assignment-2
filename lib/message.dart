@@ -14,4 +14,17 @@ class Message {
   final DateTime dateTime;
 
   Message({required this.text, required this.isUser, required this.dateTime});
+  
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Message &&
+        other.text == text &&
+        other.isUser == isUser &&
+        other.dateTime.isAtSameMomentAs(dateTime);
+  }
+  
+  @override
+  int get hashCode => Object.hash(text, isUser, dateTime);
+  
 }
