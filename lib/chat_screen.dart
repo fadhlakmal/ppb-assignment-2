@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'package:myapp/chat_bubble.dart';
 import 'package:myapp/chat_manager.dart';
 
@@ -11,27 +10,11 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final _myBox = Hive.box('chatBox');
-
-  void writeData() {
-    _myBox.put(1, "John");
-  }
-
-  void readData() {
-    print(_myBox.get(1));
-  }
-
-  void deleteData() {
-    _myBox.delete(1);
-  }
-
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isNotEmpty) {
       // tunggu respon bot baru update ui
-      _chatManager.sendUserMessage(text).then((_) => {
-        setState(() {})
-      });
+      _chatManager.sendUserMessage(text).then((_) => {setState(() {})});
       _controller.clear();
     }
   }

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:myapp/chat_screen.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:myapp/message.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+  Hive.registerAdapter(MessageAdapter());
   await Hive.openBox('chatBox');
 
   runApp(const MyApp());
