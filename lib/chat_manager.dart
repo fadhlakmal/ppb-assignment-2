@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'package:myapp/llm_service.dart';
 import 'package:myapp/message.dart';
 
 class ChatManager {
@@ -37,9 +38,7 @@ class ChatManager {
   Future<void> sendUserMessage(String text) async {
     addUserMessage(text);
 
-    // sementara simulate bot respon
-    await Future.delayed(const Duration(seconds: 1));
-    final response = "return '$text'";
+    final response = await callLLM(text);
 
     addBotResponse(response);
   }
