@@ -80,7 +80,7 @@ Buat class `Message` (`message.dart`) untuk menstruktur data pesan pada chat. Pa
 ```
 
 
-**4. Logika chat**
+**4. Chat Messages Logic**
 
 Definisikan logika chat (`chat_manager.dart`):
 - Simpan list message dengan getter untuk akses data tersebut (sebagai unmodifiable list untuk safety)
@@ -263,7 +263,209 @@ Pada widget ChatBubble (`chat_bubble`), manfaatkan isUser untuk:
 
 
 ### Add Hive
+**1. Initialize Hive**
+
+inisialisasi hive sebelum menjalankan aplikasi, open (atau create) hive box bernama 'chat' untuk menyimpan message
+
+```dart
+ void main() async {
+   // Pastikan flutter di inisialisasi sebelum menggunakan platform channels
+   WidgetsFlutterBinding.ensureInitialized();
+
+   await Hive.initFlutter();
+   await Hive.openBox('chat');
+
+   runApp(const MyApp());
+ }
+```
+
+**2. Generate TypeAdapter**
+
+Untuk menyimpan custom object di Hive, kita perlu memberitahu hive cara serialisasi dan deserialisasi object `Message` untuk storage melalui `TypeAdapter`:
+- `HiveType` menandakan class sebagai Hive model
+- Anotasikan member class dengan `HiveField` 
+- Tambahkan `part 'message.g.dart'` untuk link dengan generated code file
+
+```dart
+import 'package:hive/hive.dart';
+ 
+ part 'message.g.dart';
+ 
+ @HiveType(typeId: 0) // type 0 unique id
+ class Message {
+   @HiveField(0)
+   final String text;
+ 
+   @HiveField(1)
+   final bool isUser;
+   
+   @HiveField(2)
+   final DateTime dateTime;
+ 
+   Message({required this.text, required this.isUser, required this.dateTime});
+```
+
+- Jalankan command berikut di terminal untuk generate adapter code
+
+```sh
+dart run build_runner build
+```
+
+- Register adapter tsb. di `main.dart`
+
+```dart
+ void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+   await Hive.initFlutter();
+   Hive.registerAdapter(MessageAdapter());
+   await Hive.openBox('chat');
+
+   runApp(const MyApp());
+ }
+```
+
+3. Update `chat_manager.dart` agar menggunakan hive
+
+- Load pesan-pesan dari Hive saat `ChatManager` di initialisasikan
+
+```dart
+ class ChatManager {
+   final _myBox = Hive.box("chat");
+ 
+   final List<Message> _messages = [];
+ 
+   List<Message> get messages => List.unmodifiable(_messages);
+ 
+   ChatManager() {
+     for (int i = 0; i < _myBox.length; i++) {
+       _messages.add(_myBox.get(i));
+     }
+   }
+
+   ...
+ }
+```
+
+Aplikasi menggunakan dual-storage, In-memory list untuk UI rendering dan Hive database untuk persistence.
+- Buat metode untuk menambahkan pesan ke local list dan hive box
+- Update `addUserMessage()` dan `addBotResponse()` agar menggunakan metode tsb.
+- Update `deleteMessage()` method untuk menghapus pesan dari kedua storage
+
+**Side Note:** Secara realistis, approach yang lebih bagus adalah dengan menyimpan pesan-pesan dalam list selama penggunaan aplikasi dan hanya menyimpan list tsb. ke database saat aplikasi ditutup atau menjadi background. Tapi untuk aplikasi kecil negligible.
+
+```dart
+ class ChatManager {
+   ...
+
+   void _addBoth(Message message) {
+     int index = _myBox.length;
+     _myBox.put(index, message);
+     _messages.add(message);
+   }
+
+   void addUserMessage(String text) {
+     final message = Message(text: text, isUser: true, dateTime: DateTime.now());
+     _addBoth(message);
+   }
+ 
+   void addBotResponse(String text) {
+     final message = Message(
+       text: text,
+       isUser: false,
+       dateTime: DateTime.now(),
+     );
+     _addBoth(message);
+   }
+
+   ...
+ }
+```
+
+```dart
+ class ChatManager {
+   ...
+
+   void deleteMessage(Message message) {
+     int index = _messages.indexOf(message);
+     if (index != -1) {
+       _myBox.deleteAt(index);
+       _messages.remove(message);
+     }
+   }
+
+   ...
+ }
+```
+
+**Note lagi:** `deleteMessage()` menggunakan `_messages.indexOf(message)` untuk mencari posisi message yang ingin di hapus, dimana `indexOf()` menggunakan operasi `==`. By default, implementasi `==` dari Dart membandingkan object berdasarkan memory address, bukan content/value. Jadi saat kita membuat Message object baru atau mengambil object dari Hive, meskipun memiliki `text`, `isUser`, dan `dateTime` yang sama, tetap akan dianggap object yang berbeda.
+
+Oleh karena itu, operator `==` untuk object tersebut perlu kita ubah (override) agar membadingkan berdasarkan konten. 
+
+```dart
+@HiveType(typeId: 0)
+class Message {
+  ...
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is Message &&
+        other.text == text &&
+        other.isUser == isUser &&
+        other.dateTime.isAtSameMomentAs(dateTime);
+  }
+  
+  @override
+  int get hashCode => Object.hash(text, isUser, dateTime);
+  
+}
+```
 
 
 ### Add LLM
+1. Tambah permission internet pada device (android)
 
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+2. LLM API Logic
+```dart
+Future<String> callLLM(String prompt) async {
+   final response = await http.post(
+     Uri.parse(
+       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}',
+     ),
+     headers: <String, String>{'Content-Type': 'application/json'},
+     body: jsonEncode({
+       "contents": [
+         {
+           "parts": [
+             {"text": prompt},
+           ],
+         },
+       ],
+     }),
+   );
+ 
+   if (response.statusCode == 200) {
+     final jsonResponse = json.decode(response.body);
+     return jsonResponse['candidates'][0]['content']['parts'][0]['text'];
+   } else {
+     throw Exception('Failed to call LLM: ${response.body}');
+   }
+ }
+```
+
+```dart
+  Future<void> sendUserMessage(String text) async {
+     addUserMessage(text);
+ 
+     // sementara simulate bot respon
+     // await Future.delayed(const Duration(seconds: 1));
+     // final response = "return '$text'";
+     final response = await callLLM(text);
+ 
+     addBotResponse(response);
+  }
+```
