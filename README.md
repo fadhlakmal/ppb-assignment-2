@@ -425,11 +425,23 @@ class Message {
 ### Add LLM
 1. Tambah permission internet pada device (android)
 
+Untuk android, pada file `AndroidManifest.xml` tambahkan:
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 ```
 
+Untuk ios, pada file `Info.plist` tambahkan:
+```xml
+<key>NSAppTransportSecurity</key>
+<dict>
+   <key>NSAllowsArbitraryLoads</key><true/>
+</dict>
+```
+
 2. LLM API Logic
+
+Tambahkan fungsi untuk memanggil API LLM dan update `sendUserMessage()` agar menggunakan fungsi tersebut.
+
 ```dart
 Future<String> callLLM(String prompt) async {
    final response = await http.post(
