@@ -440,7 +440,7 @@ Untuk ios, pada file `Info.plist` tambahkan:
 
 2. LLM API Logic
 
-Tambahkan fungsi untuk memanggil API LLM dan update `sendUserMessage()` agar menggunakan fungsi tersebut.
+Tambahkan fungsi untuk memanggil API LLM dan update `sendUserMessage()` agar menggunakan fungsi tersebut. Gunakan api key sendiri atau yang tersedia (api key memang untuk demo app). 
 
 ```dart
 Future<String> callLLM(String prompt) async {
